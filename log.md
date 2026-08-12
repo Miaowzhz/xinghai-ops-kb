@@ -5,3 +5,9 @@ github：https://github.com/Miaowzhz/xinghai-ops-kb
 3. 初始化后端项目
 4. 安装依赖
 5. 安装相关的中间件
+
+
+## 0811
+github：https://github.com/Miaowzhz/xinghai-ops-kb
+1. 完善依赖安装&后端完整初始化
+2. 前端完整初始化

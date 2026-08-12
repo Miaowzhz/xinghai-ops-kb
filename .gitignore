@@ -8,10 +8,23 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Virtual environment
 .venv/
 venv/
+
+# Node / Vite
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+coverage/
+.vite/
 
 # Environment / secrets
 .env
