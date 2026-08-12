@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # 数据库（MySQL，asyncmy 异步驱动）
     database_url: str = (
-        "mysql+asyncmy://root:password@127.0.0.1:3306/xinghai_ops_kb?charset=utf8mb4"
+        "mysql+asyncmy://xinghai:Xinghai@123456@127.0.0.1:3306/xinghai_ops_kb?charset=utf8mb4"
     )
 
     # JWT

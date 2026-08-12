@@ -2,7 +2,7 @@
 
 from pymilvus import MilvusClient
 
-from app.core.config import settings
+from app.config import settings
 
 
 COLLECTION = "ops_kb_chunks"
