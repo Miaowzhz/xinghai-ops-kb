@@ -1,0 +1,38 @@
+# =====================================================
+# xinghai-ops-kb 后端依赖清单（版本固定）
+# Python 运行时：3.11（由 conda 环境提供，不在此清单中）
+# =====================================================
+
+# ---- Web 框架 ----
+fastapi==0.141.1          # Web 框架，提供 REST API 与 SSE 流式响应
+uvicorn==0.52.1           # ASGI 服务器
+
+# ---- 数据层 ----
+sqlalchemy==2.0.51        # ORM，操作 MySQL
+pymysql==1.2.0            # MySQL 驱动（SQLAlchemy 连接用）
+asyncmy==0.2.13           # SQLAlchemy AsyncSession 的 MySQL 异步驱动
+pymilvus==2.6.17          # Milvus Python SDK（配 Milvus 2.6 服务端）
+langchain-milvus==0.3.3   # LangChain 的 Milvus 向量存储集成（配 pymilvus 2.6.x）
+
+# ---- 数据校验 ----
+pydantic==2.11.7          # 请求/响应数据校验与序列化
+pydantic-settings==2.15.0 # 配置中心（app/core/config.py）
+
+# ---- 认证 ----
+python-jose==3.5.0        # JWT 签发与验证
+passlib==1.7.4            # 密码哈希
+bcrypt==4.0.1             # 配合 passlib 做密码哈希
+
+# ---- LLM / Agent ----
+langchain==1.3.14         # LLM 调用与工具链抽象
+langchain-core==1.5.3     # langchain 核心库
+langgraph==1.2.10         # Agent 工作流编排（意图识别 → 护栏 → 检索 → 生成 → 引用校验）
+langchain-openai==1.4.2   # DashScope OpenAI 兼容接入
+openai==2.53.0            # OpenAI SDK（随 langchain-openai）
+dashscope==1.26.6         # DashScope 备用直连 SDK
+
+# ---- 工具 ----
+python-multipart==0.0.32  # 文件上传表单解析
+httpx==0.28.1             # SSE/异步调用
+pypdf==6.15.0             # PDF 解析
+python-docx==1.2.0        # Word 解析
