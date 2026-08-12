@@ -1,15 +1,20 @@
+# backend/app/main.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
-from app.router import api_router, auth
+app = FastAPI(title="星海运维智能知识库")
+
+# 开发期允许 Vite 前端（localhost:5173）跨域直调；走 vite 代理时其实不会触发跨域
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title=settings.app_name, version="0.1.0")
-    app.include_router(api_router, prefix=settings.api_prefix)
-    return app
-
-
-app = create_app()
-
-app.include_router(auth)
+@app.get("/api/health")
+def health():
+    """健康检查：能返回说明 FastAPI 与路由注册正常。"""
+    return {"status": "ok"}

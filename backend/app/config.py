@@ -1,34 +1,36 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+# backend/app/config.py
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent  # backend/ 目录
 
 
-class Settings(BaseSettings):
-    """应用配置中心，支持通过环境变量 / .env 覆盖默认值。"""
+def _load_env() -> None:
+    """极简 .env 加载器：按 KEY=VALUE 逐行读入环境变量，已有的不覆盖。"""
+    env_file = BASE_DIR / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
 
-    # 基础信息
-    app_name: str = "xinghai-ops-kb"
-    api_prefix: str = "/api"
 
-    # 数据库（MySQL，asyncmy 异步驱动）
-    database_url: str = (
-        "mysql+asyncmy://xinghai:Xinghai@123456@127.0.0.1:3306/xinghai_ops_kb?charset=utf8mb4"
-    )
+_load_env()
 
-    # JWT
-    secret_key: str = "change-me-in-production"
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60 * 24  # 24 小时
 
-    # Milvus
-    milvus_uri: str = "http://127.0.0.1:19530"
+class Settings:
+    """全项目统一配置入口；新增配置项时在 .env 和这里各加一行。"""
 
-    # DashScope / 阿里云百炼（API Key 配置在 .env，不提交代码库）
-    dashscope_api_key: str = ""
-    dashscope_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    llm_model: str = "qwen-plus"
-    embedding_model: str = "text-embedding-v3"
-    embedding_dim: int = 1024
-
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    BASE_DIR: Path = BASE_DIR
+    MYSQL_URL: str = os.environ["MYSQL_URL"]
+    MILVUS_URI: str = os.environ["MILVUS_URI"]
+    DASHSCOPE_API_KEY: str = os.environ["DASHSCOPE_API_KEY"]
+    JWT_SECRET_KEY: str = os.environ["JWT_SECRET_KEY"]
+    JWT_EXPIRE_MINUTES: int = int(os.environ.get("JWT_EXPIRE_MINUTES", "720"))
+    UPLOAD_DIR: str = os.environ.get("UPLOAD_DIR", "uploads")
 
 
 settings = Settings()
