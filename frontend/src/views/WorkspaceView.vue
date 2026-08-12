@@ -1,58 +1,624 @@
 <script setup>
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Search, Bell, ArrowUpRight, BookOpen, FileText, CircleCheck, Clock3 } from '@lucide/vue'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  Search, Send, LogOut, MessageSquare, FileText,
+  Wrench, Settings, Upload, MessageSquareWarning,
+  Sparkles
+} from '@lucide/vue'
+import { useAuthStore } from '../stores/auth'
 
-const activeNav = ref('总览')
-const query = ref('')
+const router = useRouter()
+const auth = useAuthStore()
+
 const question = ref('')
-const navItems = ['总览', '知识文档', '智能问答', '运维工具']
-const documents = [
-  { title: '生产环境变更操作规范', type: '流程规范', updated: '2 小时前', status: '已发布', accent: 'green' },
-  { title: 'Kubernetes 集群故障排查手册', type: '故障手册', updated: '昨天', status: '已发布', accent: 'blue' },
-  { title: '数据库慢查询应急预案', type: '应急预案', updated: '3 天前', status: '待审核', accent: 'orange' },
+const activeNav = ref('智能问答')
+const isAsking = ref(false)
+
+// 基础导航项
+const baseNavItems = [
+  { name: '智能问答', icon: MessageSquare },
+  { name: '知识文档', icon: FileText },
+  { name: '运维工具', icon: Wrench },
 ]
 
+// 管理员专属导航项
+const adminNavItems = [
+  { name: '文档管理', icon: Settings },
+  { name: '上传入库', icon: Upload },
+  { name: '反馈审核', icon: MessageSquareWarning },
+]
+
+const allNavItems = computed(() => {
+  const items = [...baseNavItems]
+  if (auth.isAdmin) {
+    items.push(...adminNavItems)
+  }
+  return items
+})
+
+// 获取头像首字
+const avatarChar = computed(() => auth.user?.display_name?.charAt(0) || '用')
+const roleLabel = computed(() => auth.user?.role === 'admin' ? '管理员' : '工程师')
+
+// 快捷问题
+const quickQuestions = [
+  '如何排查 Pod CrashLoopBackOff？',
+  'MySQL 主从延迟怎么处理？',
+  'Nginx 502 Bad Gateway 排查思路',
+  'Redis 内存满了怎么办？',
+]
+
+// 模拟提问（后续对接真实接口）
 function submitQuestion() {
-  if (!question.value.trim()) return ElMessage.info('请输入你的运维问题')
-  ElMessage.success('问题已提交，问答接口接入后将返回实时答案')
-  question.value = ''
+  if (!question.value.trim()) {
+    ElMessage.info('请输入你的问题')
+    return
+  }
+  isAsking.value = true
+  setTimeout(() => {
+    isAsking.value = false
+    ElMessage.info('AI 问答接口接入中，敬请期待')
+    question.value = ''
+  }, 1000)
+}
+
+function handleQuickQ(q) {
+  question.value = q
+}
+
+function handleNavClick(item) {
+  activeNav.value = item.name
+  if (adminNavItems.some(n => n.name === item.name)) {
+    ElMessage.info(`「${item.name}」功能开发中`)
+  }
+}
+
+async function handleLogout() {
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    auth.clearSession()
+    router.push('/login')
+  } catch {}
 }
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="workspace">
+    <!-- 侧边栏 -->
     <aside class="sidebar">
-      <div class="brand-mark"><span>星</span></div>
-      <div class="brand-copy"><strong>星海</strong><small>运维知识库</small></div>
-      <nav class="main-nav">
-        <button v-for="item in navItems" :key="item" :class="['nav-item', { active: activeNav === item }]" @click="activeNav = item">
-          <span class="nav-dot" />{{ item }}<ArrowUpRight v-if="item === '运维工具'" :size="14" />
+      <div class="sidebar-header">
+        <div class="logo-small">
+          <span>星</span>
+        </div>
+        <span class="logo-text">星海</span>
+      </div>
+
+      <nav class="nav-list">
+        <button
+          v-for="item in allNavItems"
+          :key="item.name"
+          :class="['nav-item', { active: activeNav === item.name, admin: adminNavItems.some(n => n.name === item.name) }]"
+          @click="handleNavClick(item)"
+        >
+          <component :is="item.icon" :size="18" />
+          <span>{{ item.name }}</span>
+          <span v-if="adminNavItems.some(n => n.name === item.name)" class="admin-dot"></span>
         </button>
       </nav>
-      <div class="sidebar-footer"><div class="status-dot" />系统运行正常<span class="version">v0.1</span></div>
+
+      <div class="sidebar-footer">
+        <div class="user-card" @click="handleLogout">
+          <div class="avatar-small">{{ avatarChar }}</div>
+          <div class="user-info-small">
+            <span class="user-name">{{ auth.user?.display_name }}</span>
+            <span class="user-role">{{ roleLabel }}</span>
+          </div>
+          <LogOut :size="16" class="logout-icon" />
+        </div>
+      </div>
     </aside>
 
-    <main class="main-content">
-      <header class="topbar">
-        <div><p class="eyebrow">OPERATIONS INTELLIGENCE / 2026</p><h1>{{ activeNav }}</h1></div>
-        <div class="top-actions"><label class="search-box"><Search :size="17" /><input v-model="query" placeholder="搜索知识、文档或服务..." /></label><button class="icon-button" aria-label="通知"><Bell :size="18" /><i /></button><div class="avatar">值</div></div>
-      </header>
+    <!-- 主内容区 -->
+    <main class="main-area">
+      <!-- 顶部欢迎 -->
+      <div class="welcome-section">
+        <div class="welcome-text">
+          <h1>你好，{{ auth.user?.display_name }} 👋</h1>
+          <p>有什么运维问题，随时问我</p>
+        </div>
+      </div>
 
-      <section class="hero-row">
-        <div><p class="eyebrow warm">KNOWLEDGE AT A GLANCE</p><h2>把每一次排障<br /><em>变成下一次的答案。</em></h2><p class="hero-note">集中沉淀团队经验，让关键时刻的判断更快、更有依据。</p></div>
-        <div class="hero-stamp"><span>本周知识活跃度</span><strong>84<small>%</small></strong><div class="trend">↗ 12.4% <b>较上周</b></div></div>
-      </section>
+      <!-- 问答区域 -->
+      <div class="qa-section">
+        <div class="ask-box">
+          <div class="ask-icon">
+            <Sparkles :size="22" />
+          </div>
+          <div class="ask-input-wrap">
+            <textarea
+              v-model="question"
+              placeholder="输入你的运维问题，我会从知识库中为你找到答案..."
+              rows="1"
+              @keydown.enter.exact.prevent="submitQuestion"
+            ></textarea>
+          </div>
+          <button
+            class="ask-btn"
+            :class="{ ready: question.trim(), loading: isAsking }"
+            :disabled="isAsking"
+            @click="submitQuestion"
+          >
+            <Send v-if="!isAsking" :size="18" />
+            <span v-else class="loading-dots">
+              <i></i><i></i><i></i>
+            </span>
+          </button>
+        </div>
 
-      <section class="ask-panel">
-        <div class="ask-icon">✦</div><div class="ask-body"><span>AI 运维助手</span><h3>遇到问题？从这里开始。</h3><div class="ask-input"><input v-model="question" placeholder="例如：如何排查线上服务 502 错误？" @keyup.enter="submitQuestion" /><button @click="submitQuestion">开始提问 <ArrowUpRight :size="16" /></button></div><div class="suggestions"><span>试试：</span><button @click="question = '查看今日生产环境变更'">今日变更记录</button><button @click="question = '搜索 Redis 连接超时排查方法'">Redis 连接超时</button><button @click="question = '查询 Kubernetes 常用排障命令'">K8s 常用命令</button></div></div><div class="ask-orbit">✧</div>
-      </section>
+        <!-- 快捷提问 -->
+        <div class="quick-questions">
+          <span class="quick-label">常见问题：</span>
+          <button
+            v-for="q in quickQuestions"
+            :key="q"
+            class="quick-tag"
+            @click="handleQuickQ(q)"
+          >
+            {{ q }}
+          </button>
+        </div>
+      </div>
 
-      <section class="metrics-grid"><div class="metric"><div class="metric-icon green"><BookOpen :size="18" /></div><span>知识文档</span><strong>1,286</strong><small>↗ 8.6% 本月新增</small></div><div class="metric"><div class="metric-icon blue"><FileText :size="18" /></div><span>本周更新</span><strong>42</strong><small>覆盖 6 个业务域</small></div><div class="metric"><div class="metric-icon orange"><CircleCheck :size="18" /></div><span>待处理事项</span><strong>07</strong><small>需要你的关注</small></div><div class="metric"><div class="metric-icon purple"><Clock3 :size="18" /></div><span>平均响应</span><strong>1.8<span>min</span></strong><small>AI 辅助后提升 32%</small></div></section>
-
-      <section class="content-section"><div class="section-heading"><div><p class="eyebrow">RECENT KNOWLEDGE</p><h3>最近更新</h3></div><button class="text-button">查看全部 <ArrowUpRight :size="15" /></button></div><div class="document-list"><article v-for="doc in documents" :key="doc.title" class="document-item"><div :class="['doc-icon', doc.accent]"><FileText :size="19" /></div><div class="doc-main"><h4>{{ doc.title }}</h4><p>{{ doc.type }} <span>·</span> 更新于 {{ doc.updated }}</p></div><span :class="['doc-status', doc.status === '待审核' ? 'pending' : 'published']">{{ doc.status }}</span><button class="row-arrow" aria-label="打开文档"><ArrowUpRight :size="17" /></button></article></div></section>
-
-      <section class="bottom-grid"><div class="mini-section"><div class="section-heading"><div><p class="eyebrow">POPULAR TOPICS</p><h3>热门知识域</h3></div><button class="text-button">管理 <ArrowUpRight :size="15" /></button></div><div class="topic-grid"><button><b>容器与编排</b><span>238 篇</span></button><button><b>数据库</b><span>194 篇</span></button><button><b>网络与安全</b><span>167 篇</span></button><button><b>监控与告警</b><span>121 篇</span></button></div></div><div class="activity-panel"><p class="eyebrow">TEAM ACTIVITY</p><h3>团队动态</h3><div class="activity"><div class="activity-avatar">林</div><p><b>林晓峰</b> 更新了 <strong>生产发布规范</strong><small>12 分钟前</small></p></div><div class="activity"><div class="activity-avatar coral">陈</div><p><b>陈嘉</b> 收藏了 <strong>Redis 故障手册</strong><small>46 分钟前</small></p></div></div></section>
+      <!-- 空状态提示（后续有对话时替换为消息列表） -->
+      <div class="empty-hint">
+        <div class="hint-icon">
+          <Search :size="32" />
+        </div>
+        <p>输入问题开始搜索知识库</p>
+        <small>支持自然语言提问，AI 会帮你定位最相关的文档</small>
+      </div>
     </main>
+
+    <!-- 背景装饰 -->
+    <div class="bg-decoration">
+      <div class="bg-orb bg-orb-1"></div>
+      <div class="bg-orb bg-orb-2"></div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.workspace {
+  display: flex;
+  min-height: 100vh;
+  background: #0f1923;
+  color: #e2e8f0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 背景装饰 */
+.bg-decoration {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.15;
+}
+
+.bg-orb-1 {
+  width: 500px;
+  height: 500px;
+  background: #2dd4bf;
+  top: -200px;
+  right: -100px;
+}
+
+.bg-orb-2 {
+  width: 400px;
+  height: 400px;
+  background: #3b82f6;
+  bottom: -150px;
+  left: 100px;
+}
+
+/* 侧边栏 */
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.02);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  position: relative;
+  z-index: 10;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 40px;
+  padding: 0 8px;
+}
+
+.logo-small {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #2dd4bf, #3b82f6);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+}
+
+.logo-text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, #2dd4bf, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  width: 100%;
+  text-align: left;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+.nav-item.active {
+  background: rgba(45, 212, 191, 0.1);
+  color: #2dd4bf;
+}
+
+.nav-item.admin {
+  margin-top: 20px;
+}
+
+.nav-item.admin::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 14px;
+  right: 14px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  margin-left: auto;
+}
+
+/* 用户卡片 */
+.sidebar-footer {
+  margin-top: auto;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.user-card:hover .logout-icon {
+  opacity: 1;
+}
+
+.avatar-small {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.2), rgba(59, 130, 246, 0.2));
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2dd4bf;
+  flex-shrink: 0;
+}
+
+.user-info-small {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name {
+  font-size: 13px;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role {
+  font-size: 11px;
+  color: rgba(148, 163, 184, 0.6);
+}
+
+.logout-icon {
+  color: rgba(148, 163, 184, 0.4);
+  opacity: 0;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+/* 主内容区 */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 12%;
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.welcome-section {
+  margin-bottom: 48px;
+  animation: fadeInDown 0.6s ease both;
+}
+
+.welcome-text h1 {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-text p {
+  margin: 0;
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 15px;
+}
+
+/* 问答区域 */
+.qa-section {
+  animation: fadeInUp 0.6s ease 0.1s both;
+}
+
+.ask-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px 20px;
+  transition: all 0.3s ease;
+}
+
+.ask-box:focus-within {
+  border-color: rgba(45, 212, 191, 0.4);
+  box-shadow: 0 0 30px rgba(45, 212, 191, 0.1);
+}
+
+.ask-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.15), rgba(59, 130, 246, 0.15));
+  display: grid;
+  place-items: center;
+  color: #2dd4bf;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ask-input-wrap {
+  flex: 1;
+}
+
+.ask-input-wrap textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e2e8f0;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: none;
+  min-height: 24px;
+  max-height: 200px;
+  font-family: inherit;
+}
+
+.ask-input-wrap textarea::placeholder {
+  color: rgba(148, 163, 184, 0.4);
+}
+
+.ask-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(148, 163, 184, 0.1);
+  color: rgba(148, 163, 184, 0.3);
+  display: grid;
+  place-items: center;
+  cursor: not-allowed;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ask-btn.ready {
+  background: linear-gradient(135deg, #2dd4bf, #3b82f6);
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(45, 212, 191, 0.3);
+}
+
+.ask-btn.ready:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(45, 212, 191, 0.4);
+}
+
+.ask-btn.loading {
+  background: linear-gradient(135deg, #2dd4bf, #3b82f6);
+  cursor: wait;
+}
+
+.loading-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.loading-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: white;
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+.loading-dots i:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots i:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* 快捷问题 */
+.quick-questions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  align-items: center;
+}
+
+.quick-label {
+  font-size: 12px;
+  color: rgba(148, 163, 184, 0.5);
+  margin-right: 4px;
+}
+
+.quick-tag {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: rgba(148, 163, 184, 0.7);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-tag:hover {
+  background: rgba(45, 212, 191, 0.1);
+  border-color: rgba(45, 212, 191, 0.3);
+  color: #2dd4bf;
+}
+
+/* 空状态 */
+.empty-hint {
+  margin-top: auto;
+  padding-top: 80px;
+  text-align: center;
+  animation: fadeIn 0.8s ease 0.3s both;
+}
+
+.hint-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 20px;
+  color: rgba(148, 163, 184, 0.2);
+}
+
+.empty-hint p {
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.empty-hint small {
+  font-size: 12px;
+  color: rgba(148, 163, 184, 0.3);
+}
+
+/* 动画 */
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+</style>

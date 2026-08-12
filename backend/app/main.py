@@ -1,6 +1,7 @@
 # backend/app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.router.auth import router as auth_router
 
 app = FastAPI(title="星海运维智能知识库")
 
@@ -12,6 +13,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 注册路由
+app.include_router(auth_router)
 
 
 @app.get("/api/health")
