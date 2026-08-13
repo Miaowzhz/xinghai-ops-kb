@@ -74,6 +74,10 @@ function handleNavClick(item) {
     router.push('/documents/upload')
     return
   }
+  if (item.name === '文档管理') {
+    router.push('/documents/manage')
+    return
+  }
   if (adminNavItems.some(n => n.name === item.name)) {
     ElMessage.info(`「${item.name}」功能开发中`)
   }

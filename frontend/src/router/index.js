@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import WorkspaceView from '../views/WorkspaceView.vue'
 import LoginView from '../views/LoginView.vue'
 import DocumentUploadView from '../views/DocumentUploadView.vue'
+import DocumentManageView from '../views/DocumentManageView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -15,6 +16,7 @@ const router = createRouter({
     },
     { path: '/login', component: LoginView },
     { path: '/documents/upload', component: DocumentUploadView, meta: { requiresAuth: true, role: 'admin' } },
+    { path: '/documents/manage', component: DocumentManageView, meta: { requiresAuth: true, role: 'admin' } },
   ],
 })
 
