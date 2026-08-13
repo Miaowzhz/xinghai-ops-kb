@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import WorkspaceView from '../views/WorkspaceView.vue'
 import LoginView from '../views/LoginView.vue'
+import DocumentUploadView from '../views/DocumentUploadView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -13,6 +14,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     { path: '/login', component: LoginView },
+    { path: '/documents/upload', component: DocumentUploadView, meta: { requiresAuth: true, role: 'admin' } },
   ],
 })
 
@@ -35,6 +37,10 @@ router.beforeEach(async (to, from, next) => {
         // 拉取失败（token 过期/无效），已经被拦截器清理，跳登录
         return next('/login')
       }
+    }
+
+    if (to.meta.role && auth.user?.role !== to.meta.role) {
+      return next('/workspace')
     }
 
     return next()

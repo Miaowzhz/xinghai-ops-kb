@@ -70,6 +70,10 @@ function handleQuickQ(q) {
 
 function handleNavClick(item) {
   activeNav.value = item.name
+  if (item.name === '上传入库') {
+    router.push('/documents/upload')
+    return
+  }
   if (adminNavItems.some(n => n.name === item.name)) {
     ElMessage.info(`「${item.name}」功能开发中`)
   }
