@@ -182,7 +182,7 @@ onUnmounted(stopPolling)
       <div class="topbar-user"><span>{{ auth.user?.display_name || '管理员' }}</span><el-tag type="success" effect="dark">admin</el-tag><button title="退出登录" @click="logout"><X :size="16" /></button></div>
     </header>
     <main class="manage-main">
-      <div class="page-title-row"><div class="title-with-back"><button class="back-button" title="返回工作台" @click="router.push('/workspace')"><ArrowLeft :size="18" /></button><div><div class="eyebrow">KNOWLEDGE BASE / CATALOG</div><h1>知识库文档管理</h1><p>管理已入库资料的版本、状态与生命周期。</p></div></div><div class="polling" :class="{ active: polling }"><RefreshCw :size="14" :class="{ spinning: polling }" />{{ polling ? '正在同步入库状态' : '状态已同步' }}</div></div>
+      <div class="page-title-row"><div class="title-with-back"><button class="back-button" title="返回工作台" @click="router.push('/workspace')"><ArrowLeft :size="18" /></button><div><h1>知识库文档管理</h1><p>管理已入库资料的版本、状态与生命周期。</p></div></div><div class="polling" :class="{ active: polling }"><RefreshCw :size="14" :class="{ spinning: polling }" />{{ polling ? '正在同步入库状态' : '状态已同步' }}</div></div>
 
       <section class="filter-bar panel">
         <el-form inline class="filter-form" @submit.prevent="query">
