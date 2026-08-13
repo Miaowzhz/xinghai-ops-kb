@@ -28,7 +28,8 @@ def write_to_milvus(rows: list) -> list[str]:
     vectors = _embed([r.content for r in rows])
     data = [
         {
-            "chunk_id": r.id,                      # 标量主键，与 MySQL 对账
+            # fix: KgDocumentChunk.id 是 int，而 Milvus 初始化脚本中明确把 chunk_id 定义成了 VARCHAR
+            "chunk_id": str(r.id),                      # 标量主键，与 MySQL 对账
             "dense": vector,                       # 1024 维
             "content": r.content,                  # BM25 Function 输入字段
             "product_line": r.product_line,        # 检索过滤字段
