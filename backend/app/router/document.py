@@ -63,7 +63,7 @@ def _purge_chunks(db: Session, doc: KgDocument) -> None:
     for c in chunks:
         db.delete(c)
 
-
+# 上传知识文档
 @router.post("/upload")
 def upload_file(
         background_tasks: BackgroundTasks,
@@ -137,7 +137,7 @@ def get_documents(
              for row in db.execute(stmt).all()]
     return DocumentListResponse(total=total, items=items)
 
-
+# 文档详情
 @router.get("/{doc_id}", response_model=DocumentDetail)
 def get_document_detail(doc_id: int, db: Session = Depends(get_db),
                         user: User = Depends(require_admin)):
@@ -153,7 +153,7 @@ def get_document_detail(doc_id: int, db: Session = Depends(get_db),
                           file_type=doc.file_type, updated_at=doc.updated_at)
 
 
-# 删除与 reingest
+# 删除
 @router.delete("/{doc_id}")
 def delete_document(doc_id: int, db: Session = Depends(get_db),
                     admin: User = Depends(require_admin)):
@@ -166,6 +166,7 @@ def delete_document(doc_id: int, db: Session = Depends(get_db),
     return {"doc_id": doc_id, "deleted": True}
 
 
+# 重新入库
 @router.post("/{doc_id}/reingest")
 def reingest_document(
     doc_id: int,
