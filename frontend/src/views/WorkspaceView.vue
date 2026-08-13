@@ -3,8 +3,8 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Search, Send, LogOut, MessageSquare, FileText,
-  Wrench, Settings, Upload, MessageSquareWarning,
+  Search, Send, LogOut, MessageSquare, History,
+  Settings, Upload, MessageSquareWarning,
   Sparkles
 } from '@lucide/vue'
 import { useAuthStore } from '../stores/auth'
@@ -19,15 +19,14 @@ const isAsking = ref(false)
 // 基础导航项
 const baseNavItems = [
   { name: '智能问答', icon: MessageSquare },
-  { name: '知识文档', icon: FileText },
-  { name: '运维工具', icon: Wrench },
+  { name: '问答历史记录', icon: History },
 ]
 
 // 管理员专属导航项
 const adminNavItems = [
-  { name: '文档管理', icon: Settings },
-  { name: '上传入库', icon: Upload },
-  { name: '反馈审核', icon: MessageSquareWarning },
+  { name: '知识库文档管理', icon: Settings },
+  { name: '文档上传与入库', icon: Upload },
+  { name: '反馈审核工作台', icon: MessageSquareWarning },
 ]
 
 const allNavItems = computed(() => {
@@ -70,11 +69,11 @@ function handleQuickQ(q) {
 
 function handleNavClick(item) {
   activeNav.value = item.name
-  if (item.name === '上传入库') {
+  if (item.name === '文档上传与入库') {
     router.push('/documents/upload')
     return
   }
-  if (item.name === '文档管理') {
+  if (item.name === '知识库文档管理') {
     router.push('/documents/manage')
     return
   }
