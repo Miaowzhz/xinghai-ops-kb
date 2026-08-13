@@ -15,3 +15,11 @@ github：https://github.com/Miaowzhz/xinghai-ops-kb
 4. 新建user实体类&密码加解密&JWT 签发与解析
 5. 项目配置信息补充&mock数据脚本执行&项目探活接口测试
 6. 登录接口实现&授权依赖实现&前端登录页面实现
+
+
+## 0813
+github：https://github.com/Miaowzhz/xinghai-ops-kb
+1. 梳理知识入库需求
+2. 理解知识入库流程
+3. 梳理切块流程
+4. 知识入库功能实现
