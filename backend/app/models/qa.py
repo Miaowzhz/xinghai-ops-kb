@@ -20,6 +20,9 @@ class QaSession(Base):
 class QaMessage(Base):
     __tablename__ = "qa_message"
 
+    # 消息表只记录创建时间；Base 的公共 updated_at 不属于该表。
+    updated_at = None
+
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     session_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("qa_session.id"), index=True)
     role: Mapped[str] = mapped_column(String(20))          # user / assistant

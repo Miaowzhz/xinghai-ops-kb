@@ -4,6 +4,7 @@ from app.config import settings
 from app.services import retrieval_service, guardrail_service  # guardrail: Stage 5
 from app.agent.prompts import INTENT_PROMPT, DECOMPOSE_PROMPT, GENERATE_PROMPT
 from app.agent.state import AgentState
+import re
 
 llm = ChatOpenAI(
     model="qwen-plus",
@@ -94,3 +95,33 @@ async def generate(state: AgentState) -> dict:
     )
     resp = await llm.ainvoke(prompt)
     return {"answer": resp.content}
+
+
+async def citation_verify(state: AgentState) -> dict:
+    """校验答案中的引用编号，并把编号映射为前端展示的引用快照。"""
+    answer = state.get("answer", "")
+    chunks = state.get("fused_chunks", [])
+    cited_numbers = {int(value) for value in re.findall(r"\[(\d+)\]", answer)}
+    valid_numbers = {number for number in cited_numbers if 1 <= number <= len(chunks)}
+    citations = [chunks[number - 1] for number in sorted(valid_numbers)]
+
+    if cited_numbers != valid_numbers:
+        return {
+            "citations": citations,
+            "status": "verify_failed",
+            "retry_count": state.get("retry_count", 0) + 1,
+        }
+    return {"citations": citations, "status": "normal"}
+
+
+async def respond(state: AgentState) -> dict:
+    """统一补齐最终响应字段，供 SSE 和消息落库使用。"""
+    status = state.get("status", "normal")
+    # 引用校验重试耗尽时仍返回答案，避免前端进入未定义状态。
+    if status == "verify_failed":
+        status = "normal"
+    return {
+        "answer": state.get("answer", "系统暂时无法生成回答。"),
+        "citations": state.get("citations", []),
+        "status": status,
+    }

@@ -1,4 +1,5 @@
 # backend/app/routers/qa.py
+import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -13,6 +14,7 @@ from app.schemas.qa import ChatRequest
 
 
 router = APIRouter(prefix="/api/qa", tags=["qa"])
+logger = logging.getLogger(__name__)
 
 
 def _split_answer(text: str, size: int = 8):
@@ -92,6 +94,7 @@ async def chat(
             yield sse_event("done", {"session_id": session_id})
         except Exception:
             # 大模型超时/限流等：发 error 事件 + 写 failed 占位消息，连接正常关闭
+            logger.exception("QA chat pipeline failed: session_id=%s", session_id)
             await qa_service.save_message(
                 db, session_id, role="assistant",
                 content="系统繁忙，请稍后重试。", status="failed",

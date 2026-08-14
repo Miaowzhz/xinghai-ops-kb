@@ -23,7 +23,7 @@ def route_after_fuse(state: AgentState) -> str:
 
 def route_after_verify(state: AgentState) -> str:
     # 引用校验失败且未重试过：回到 generate 重新生成（最多 1 次）
-    if state.get("status") == "verify_failed" and state.get("retry_count", 0) < 1:
+    if state.get("status") == "verify_failed" and state.get("retry_count", 0) <= 1:
         return "regenerate"
     return "respond"
 
