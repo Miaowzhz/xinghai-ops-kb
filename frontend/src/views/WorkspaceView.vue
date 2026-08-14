@@ -69,6 +69,10 @@ function handleQuickQ(q) {
 
 function handleNavClick(item) {
   activeNav.value = item.name
+  if (item.name === '智能问答') {
+    router.push('/qa')
+    return
+  }
   if (item.name === '文档上传与入库') {
     router.push('/documents/upload')
     return

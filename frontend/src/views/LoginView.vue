@@ -36,7 +36,7 @@ async function handleLogin() {
     await auth.login(username.value.trim(), password.value)
     // 成功动画一小会再跳转
     setTimeout(() => {
-      router.push('/workspace')
+      router.push('/qa')
     }, 600)
   } catch (error) {
     const detail = error.response?.data?.detail

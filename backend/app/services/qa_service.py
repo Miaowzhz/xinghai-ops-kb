@@ -41,7 +41,10 @@ async def list_sessions(db: AsyncSession, user_id: int) -> list[dict]:
 async def list_messages(db: AsyncSession, session_id: int, user_id: int) -> list[QaMessage]:
     await _check_session_owner(db, session_id, user_id)  # 越权访问直接 404/403
     stmt = select(QaMessage).where(QaMessage.session_id == session_id).order_by(QaMessage.id)
-    return list((await db.execute(stmt)).scalars())
+    messages = list((await db.execute(stmt)).scalars())
+    for message in messages:
+        message.citations = json.loads(message.citations) if message.citations else None
+    return messages
 
 
 async def load_history(db: AsyncSession, session_id: int) -> list[dict]:

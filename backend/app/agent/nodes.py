@@ -44,6 +44,7 @@ async def guardrail_check(state: AgentState, db) -> dict:
     return {}
 
 
+# 问题分解节点
 async def decompose(state: AgentState) -> dict:
     prompt = DECOMPOSE_PROMPT.format(history=state["history"], question=state["question"])
     resp = await llm.ainvoke(prompt)
@@ -51,6 +52,7 @@ async def decompose(state: AgentState) -> dict:
     return {"sub_questions": subs or [state["question"]]}
 
 
+# 混合检索节点
 async def hybrid_retrieve(state: AgentState, db) -> dict:
     chunks = []
     for q in state.get("sub_questions") or [state["question"]]:
@@ -62,6 +64,7 @@ async def hybrid_retrieve(state: AgentState, db) -> dict:
     return {"retrieved_chunks": list(dedup.values())}
 
 
+# 融合重排节点
 async def fuse_rerank(state: AgentState) -> dict:
     """融合重排取 top5；无可用片段时只写空列表，由条件边路由到 refuse 节点。"""
     chunks = sorted(state["retrieved_chunks"], key=lambda c: c["score"], reverse=True)[:5]
@@ -70,6 +73,7 @@ async def fuse_rerank(state: AgentState) -> dict:
     return {"fused_chunks": chunks}
 
 
+# 拒答节点
 async def refuse(state: AgentState) -> dict:
     """拒答节点：检索不到可靠依据，明确告知而不是让大模型编造。"""
     return {
@@ -79,6 +83,7 @@ async def refuse(state: AgentState) -> dict:
     }
 
 
+# 生成答案节点
 async def generate(state: AgentState) -> dict:
     context = "\n\n".join(
         f"[{i}]（{c['document_title']} {c['product_version']}）{c['snippet']}"

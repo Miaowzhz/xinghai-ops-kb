@@ -15,6 +15,11 @@ from app.schemas.qa import ChatRequest
 router = APIRouter(prefix="/api/qa", tags=["qa"])
 
 
+def _split_answer(text: str, size: int = 8):
+    """按小片段输出答案，保证前端能观察到流式追加效果。"""
+    return [text[index:index + size] for index in range(0, len(text), size)]
+
+
 @router.post("/sessions", response_model=SessionOut)
 async def create_session(
     body: SessionCreate,

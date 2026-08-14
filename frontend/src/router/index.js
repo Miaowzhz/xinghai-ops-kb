@@ -4,11 +4,12 @@ import WorkspaceView from '../views/WorkspaceView.vue'
 import LoginView from '../views/LoginView.vue'
 import DocumentUploadView from '../views/DocumentUploadView.vue'
 import DocumentManageView from '../views/DocumentManageView.vue'
+import QaView from '../views/QaView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', redirect: '/workspace' },
+    { path: '/', redirect: '/qa' },
     {
       path: '/workspace',
       component: WorkspaceView,
@@ -17,6 +18,7 @@ const router = createRouter({
     { path: '/login', component: LoginView },
     { path: '/documents/upload', component: DocumentUploadView, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/documents/manage', component: DocumentManageView, meta: { requiresAuth: true, role: 'admin' } },
+    { path: '/qa', component: QaView, meta: { requiresAuth: true } },
   ],
 })
 
@@ -42,7 +44,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (to.meta.role && auth.user?.role !== to.meta.role) {
-      return next('/workspace')
+      return next('/qa')
     }
 
     return next()
@@ -50,7 +52,7 @@ router.beforeEach(async (to, from, next) => {
 
   // 2. 如果已登录用户访问登录页，跳转到工作台
   if (to.path === '/login' && auth.isAuthenticated) {
-    return next('/workspace')
+    return next('/qa')
   }
 
   next()
