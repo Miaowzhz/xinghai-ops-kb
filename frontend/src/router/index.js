@@ -1,24 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import WorkspaceView from '../views/WorkspaceView.vue'
 import LoginView from '../views/LoginView.vue'
 import DocumentUploadView from '../views/DocumentUploadView.vue'
 import DocumentManageView from '../views/DocumentManageView.vue'
 import QaView from '../views/QaView.vue'
+import ComingSoonView from '../views/ComingSoonView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/qa' },
-    {
-      path: '/workspace',
-      component: WorkspaceView,
-      meta: { requiresAuth: true },
-    },
+    { path: '/workspace', redirect: '/qa' },
     { path: '/login', component: LoginView },
     { path: '/documents/upload', component: DocumentUploadView, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/documents/manage', component: DocumentManageView, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/qa', component: QaView, meta: { requiresAuth: true } },
+    { path: '/qa/history', component: QaView, meta: { requiresAuth: true } },
+    { path: '/feedback/audit', component: ComingSoonView, meta: { requiresAuth: true, role: 'admin' } },
+    { path: '/:pathMatch(.*)*', redirect: '/qa' },
   ],
 })
 
