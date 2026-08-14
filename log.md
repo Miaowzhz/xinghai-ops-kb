@@ -32,4 +32,9 @@ github：https://github.com/Miaowzhz/xinghai-ops-kb
 
 ## 0814
 github：https://github.com/Miaowzhz/xinghai-ops-kb
-1. 复习
+1. 复习用户与权限业务
+2. 复习知识入库业务
+3. 知识问答-数据模型、Scheme
+4. 知识问答-会话管理
+5. 知识问答-混合检索服务
+6. 知识问答-历史会话前端页面
