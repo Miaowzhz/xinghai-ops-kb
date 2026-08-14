@@ -17,7 +17,7 @@ import os
 import uuid
 from fastapi import APIRouter, Depends, UploadFile, BackgroundTasks, Form, HTTPException
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.deps import require_admin
 from app.database import get_db
@@ -107,7 +107,7 @@ def _save_upload(file: UploadFile) -> tuple[str, int, str]:
     return file_path, len(file_bytes), ext
 
 
-def _purge_chunks(db: Session, doc: KgDocument) -> None:
+async def _purge_chunks(db: AsyncSession, doc: KgDocument) -> None:
     """清掉旧 chunk 的两处数据（Milvus 向量 + MySQL 行），保留 kg_document 行。
 
     仅在 reingest 重传场景调用；完全删除文档走 ingest_service.delete_document_everywhere。
@@ -120,29 +120,29 @@ def _purge_chunks(db: Session, doc: KgDocument) -> None:
         doc: 目标文档，取其 id 查询关联 chunks
     """
     # 1) 查出该文档下所有 chunk 记录（含 milvus_id 字段）
-    chunks = db.scalars(
-        select(KgDocumentChunk).where(KgDocumentChunk.document_id == doc.id)).all()
+    chunks = (await db.scalars(
+        select(KgDocumentChunk).where(KgDocumentChunk.document_id == doc.id))).all()
 
     # 2) 先删向量库 Milvus（外部依赖，失败可重试）——过滤掉 milvus_id 为空的脏数据
     ingest_service.delete_from_milvus([c.milvus_id for c in chunks if c.milvus_id])
 
     # 3) 再删 MySQL 中的 chunk 行（本事务内，随外层 commit 生效）
     for c in chunks:
-        db.delete(c)
+        await db.delete(c)
 
 # ---------------------------------------------------------------------------
 # 上传知识文档接口
 # 设计要点：先查重再落盘（避免"拒绝后磁盘仍留孤儿文件"）；入库流水线异步执行。
 # ---------------------------------------------------------------------------
 @router.post("/upload")
-def upload_file(
+async def upload_file(
         background_tasks: BackgroundTasks,  # FastAPI 后台任务：入库流水线在响应后异步跑
         file: UploadFile,                   # 用户上传的文件体（multipart/form-data）
         title: str = Form(...),             # 文档标题（同 product_line 下唯一）
         doc_type: str = Form(...),          # 文档类型（前端枚举下拉）
         product_line: str = Form(...),      # 所属产品线
         product_version: str = Form(...),   # 产品版本号
-        db: Session = Depends(get_db),      # SQLAlchemy Session（请求级事务）
+        db: AsyncSession = Depends(get_db), # SQLAlchemy AsyncSession（请求级事务）
         admin: User = Depends(require_admin),  # 权限拦截：仅管理员可上传
 ):
     """上传新知识文档。
@@ -152,7 +152,7 @@ def upload_file(
     """
     # ---------- 1. 业务查重：同 title + product_line 视为重复文档 ----------
     # 注意先查重再落盘，否则"重名被拒绝但文件已写入 uploads/"会产生孤儿文件
-    exists = db.scalar(select(KgDocument).where(
+    exists = await db.scalar(select(KgDocument).where(
         KgDocument.title == title, KgDocument.product_line == product_line))
     if exists is not None:
         raise HTTPException(status_code=409, detail="已存在同名文档，请使用重新上传新版")
@@ -169,8 +169,8 @@ def upload_file(
         created_by=admin.id,
     )
     db.add(doc)
-    db.commit()       # 必须先 commit，拿到自增 id，后台任务才查得到这行
-    db.refresh(doc)   # 刷新获取 doc.id 及数据库默认值
+    await db.commit()       # 必须先 commit，拿到自增 id，后台任务才查得到这行
+    await db.refresh(doc)   # 刷新获取 doc.id 及数据库默认值
 
     # ---------- 4. 将"解析 + 切片 + 向量化 + 入库"丢给后台线程 ----------
     # BackgroundTasks 会在响应发送给客户端之后、连接关闭前执行
@@ -182,13 +182,13 @@ def upload_file(
 # 分页查询知识文档列表
 # ---------------------------------------------------------------------------
 @router.get("", response_model=DocumentListResponse)
-def get_documents(
+async def get_documents(
         page: int = 1,                      # 页码，从 1 开始
         page_size: int = 10,                # 每页条数
         doc_type: str | None = None,        # 可选过滤：文档类型
         product_line: str | None = None,    # 可选过滤：产品线
         status: str | None = None,          # 可选过滤：入库状态
-        db: Session = Depends(get_db),
+        db: AsyncSession = Depends(get_db),
         user: User = Depends(require_admin)
 ):
     """管理员视角分页查询文档列表。
@@ -209,7 +209,7 @@ def get_documents(
     # conds.append(KgDocument.created_by == user.id)
 
     # ---------- 2) 查总数（基于未分页的过滤结果） ----------
-    total = db.scalar(select(func.count(KgDocument.id)).where(*conds)) or 0
+    total = await db.scalar(select(func.count(KgDocument.id)).where(*conds)) or 0
 
     # ---------- 3) 查当前页列表 ----------
     # 必须 JOIN sys_user 拿上传人姓名；
@@ -226,21 +226,21 @@ def get_documents(
     # db.execute() 返回的行是 (KgDocument 实例, created_by_name) 元组，
     # 不能用 db.scalars()（scalars 只取每行第一列），否则会丢失上传人姓名
     items = [DocumentItem(**_document_payload(row[0], row.created_by_name))
-             for row in db.execute(stmt).all()]
+             for row in (await db.execute(stmt)).all()]
     return DocumentListResponse(total=total, items=items)
 
 # ---------------------------------------------------------------------------
 # 文档详情（附带 file_type、updated_at 两个列表页不需要的字段）
 # ---------------------------------------------------------------------------
 @router.get("/{doc_id}", response_model=DocumentDetail)
-def get_document_detail(doc_id: int, db: Session = Depends(get_db),
+async def get_document_detail(doc_id: int, db: AsyncSession = Depends(get_db),
                         user: User = Depends(require_admin)):
     """查询单篇文档详情，供前端详情抽屉展示。"""
-    row = db.execute(
+    row = (await db.execute(
         select(KgDocument, User.display_name.label("created_by_name"))
         .join(User, KgDocument.created_by == User.id)
         .where(KgDocument.id == doc_id)
-    ).first()
+    )).first()
     if row is None:
         raise HTTPException(status_code=404, detail="文档不存在")
     doc, created_by_name = row
@@ -253,13 +253,13 @@ def get_document_detail(doc_id: int, db: Session = Depends(get_db),
 # 删除文档（向量库 + MySQL chunk + MySQL document 行 + 本地文件 四处联动清理）
 # ---------------------------------------------------------------------------
 @router.delete("/{doc_id}")
-def delete_document(doc_id: int, db: Session = Depends(get_db),
+async def delete_document(doc_id: int, db: AsyncSession = Depends(get_db),
                     admin: User = Depends(require_admin)):
     """彻底删除文档。
 
     为避免删除"正在写入的中间状态"数据，parsing 状态下拒绝删除，前端需禁用对应按钮。
     """
-    doc = db.get(KgDocument, doc_id)
+    doc = await db.get(KgDocument, doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="文档不存在")
     # parsing 状态下后台任务可能在写 Milvus / MySQL，强行删除会导致脏数据
@@ -268,7 +268,7 @@ def delete_document(doc_id: int, db: Session = Depends(get_db),
 
     # ingest_service 内部负责 4 处联动清理：Milvus 向量 + KgDocumentChunk 行 +
     # KgDocument 行 + 本地原始文件；任何一步失败都在同一事务内回滚
-    ingest_service.delete_document_everywhere(db, doc)
+    await ingest_service.delete_document_everywhere(db, doc)
     return {"doc_id": doc_id, "deleted": True}
 
 
@@ -276,12 +276,12 @@ def delete_document(doc_id: int, db: Session = Depends(get_db),
 # 重新上传新版本（同一条 kg_document 记录，version 自增，旧 chunk 与旧文件清理后重走流水线）
 # ---------------------------------------------------------------------------
 @router.post("/{doc_id}/reingest")
-def reingest_document(
+async def reingest_document(
     doc_id: int,                             # 目标文档 ID（沿用旧记录，不新增行）
     background_tasks: BackgroundTasks,       # 后台任务：重跑入库流水线
     file: UploadFile,                        # 新文件体
     product_version: str = Form(...),        # 通常随新版本号一起改
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     """重新上传文档新版。
@@ -295,7 +295,7 @@ def reingest_document(
         doc_id: 目标文档主键
         product_version: 新的产品版本号（表单字段，前端要求每次重传显式填写）
     """
-    doc = db.get(KgDocument, doc_id)
+    doc = await db.get(KgDocument, doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="文档不存在")
     # 同样禁止在 parsing 状态下重传，否则后台旧流水线 + 新流水线同时操作同一 doc 会乱
@@ -306,7 +306,7 @@ def reingest_document(
     # 1) 新文件落盘（走与 upload 完全相同的 uuid 命名逻辑，不会覆盖旧路径）
     new_path, new_file_size, new_ext = _save_upload(file)
     # 2) 清理旧 chunk 两处数据（Milvus + MySQL chunk 行），保留 kg_document 这一行
-    _purge_chunks(db, doc)
+    await _purge_chunks(db, doc)
     # 3) 删掉本地旧文件（旧路径已经不再被任何记录引用，避免 uploads/ 目录无限膨胀）
     old_abs = os.path.join(settings.BASE_DIR, doc.file_path)
     if os.path.exists(old_abs):
@@ -319,7 +319,7 @@ def reingest_document(
     doc.version += 1                    # 语义版本自增，前端表格直接展示
     doc.status = "pending"              # 重置为 pending，等待新流水线启动
     doc.chunk_count = 0                 # 旧 chunk 已清，计数归零
-    db.commit()
+    await db.commit()
 
     # ---- 后台异步重新执行入库流水线 ----
     background_tasks.add_task(run_ingest_pipeline, doc.id)

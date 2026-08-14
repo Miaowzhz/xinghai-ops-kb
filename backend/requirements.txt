@@ -9,6 +9,7 @@ uvicorn==0.52.1           # ASGI 服务器
 
 # ---- 数据层 ----
 sqlalchemy==2.0.51        # ORM，操作 MySQL
+greenlet==3.2.4           # SQLAlchemy AsyncSession 运行时依赖
 pymysql==1.2.0            # MySQL 驱动（SQLAlchemy 连接用）
 asyncmy==0.2.13           # SQLAlchemy AsyncSession 的 MySQL 异步驱动
 pymilvus==2.6.17          # Milvus Python SDK（配 Milvus 2.6 服务端）

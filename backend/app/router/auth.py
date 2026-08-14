@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
 from app.database import get_db
@@ -13,8 +13,8 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # 登录
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
-    result = authenticate_user(db, body.username, body.password)
+async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+    result = await authenticate_user(db, body.username, body.password)
     if result is None:
         # 不区分"用户不存在"和"密码错误"，避免暴露账号是否存在
         raise HTTPException(status_code=401, detail="用户名或密码错误")

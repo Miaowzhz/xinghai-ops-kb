@@ -30,7 +30,7 @@ async def intent_recognition(state: AgentState) -> dict:
         return {"intent": intent, "answer": FAQ_REPLY, "citations": [], "status": "normal"}
     return {"intent": intent}
 
-
+# 护栏检查节点
 async def guardrail_check(state: AgentState, db) -> dict:
     # 命中 action=block 的规则：直接给出拦截话术，状态置 blocked，不再检索/生成
     rule = await guardrail_service.match_block_rule(db, state["question"])

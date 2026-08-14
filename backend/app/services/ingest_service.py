@@ -2,6 +2,7 @@ import os
 from dashscope import TextEmbedding
 from pymilvus import MilvusClient
 from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.chunk import KgDocumentChunk
 from app.models.document import KgDocument
@@ -46,22 +47,22 @@ def delete_from_milvus(milvus_ids: list[str]) -> None:
         _milvus.delete(collection_name="ops_kb_chunks", ids=list(milvus_ids))
 
 
-def delete_document_everywhere(db, doc: KgDocument) -> None:
+async def delete_document_everywhere(db: AsyncSession, doc: KgDocument) -> None:
     """以 MySQL 的 chunk 记录为账本，清掉 Milvus / uploads 文件 / 两张表的行。"""
-    chunks = db.scalars(
-        select(KgDocumentChunk).where(KgDocumentChunk.document_id == doc.id)).all()
+    chunks = (await db.scalars(
+        select(KgDocumentChunk).where(KgDocumentChunk.document_id == doc.id))).all()
     delete_from_milvus([c.milvus_id for c in chunks if c.milvus_id])
     for c in chunks:
-        db.delete(c)
+        await db.delete(c)
     abs_path = os.path.join(settings.BASE_DIR, doc.file_path)
     if os.path.exists(abs_path):
         os.remove(abs_path)
-    db.delete(doc)
-    db.commit()
+    await db.delete(doc)
+    await db.commit()
 
 
-def list_documents(db, doc_type=None, product_line=None, status=None,
-                   page: int = 1, page_size: int = 10) -> dict:
+async def list_documents(db: AsyncSession, doc_type=None, product_line=None, status=None,
+                         page: int = 1, page_size: int = 10) -> dict:
     """分页 + 条件过滤查文档列表；join sys_user 把上传人 id 转成展示姓名 created_by_name。"""
     stmt = (
         select(KgDocument, User.display_name.label("created_by_name"))
@@ -74,8 +75,10 @@ def list_documents(db, doc_type=None, product_line=None, status=None,
         stmt = stmt.where(KgDocument.product_line == product_line)
     if status:
         stmt = stmt.where(KgDocument.status == status)
-    total = db.scalar(select(func.count()).select_from(stmt.subquery()))
-    rows = db.execute(stmt.offset((page - 1) * page_size).limit(page_size)).all()
+    total = await db.scalar(select(func.count()).select_from(stmt.subquery()))
+    rows = (await db.execute(
+        stmt.offset((page - 1) * page_size).limit(page_size)
+    )).all()
     items = [
         {**DocumentItem.model_validate(doc).model_dump(), "created_by_name": name}
         for doc, name in rows

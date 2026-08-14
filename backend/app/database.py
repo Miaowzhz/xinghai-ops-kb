@@ -1,17 +1,16 @@
-"""
-SQLAlchemy engine / SessionLocal / Base / get_db
-
-异步 SQLAlchemy：使用 asyncmy 驱动连接 MySQL，配合 FastAPI 的
-依赖注入（get_db）为每个请求提供一个数据库会话。
-"""
+"""SQLAlchemy 异步 engine / session / Base / FastAPI database dependency."""
 # backend/app/database.py
 from datetime import datetime
-from sqlalchemy import create_engine, DateTime
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker, Mapped, mapped_column
+from sqlalchemy import DateTime
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from app.config import settings
 
-engine = create_engine(settings.MYSQL_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+async_url = settings.MYSQL_URL.replace("mysql+pymysql://", "mysql+asyncmy://", 1)
+engine = create_async_engine(async_url, pool_pre_ping=True)
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine, class_=AsyncSession, autoflush=False, expire_on_commit=False
+)
 
 
 class Base(DeclarativeBase):
@@ -20,10 +19,7 @@ class Base(DeclarativeBase):
         DateTime, default=datetime.now, onupdate=datetime.now
     )
 
-def get_db():
-    """FastAPI 依赖：每个请求一个 Session，请求结束自动关闭。"""
-    db: Session = SessionLocal()
-    try:
+async def get_db():
+    """FastAPI 依赖：每个请求一个 AsyncSession，请求结束自动关闭。"""
+    async with AsyncSessionLocal() as db:
         yield db
-    finally:
-        db.close()
