@@ -11,17 +11,22 @@ from app.schemas.document import DocumentItem
 
 _milvus = MilvusClient(uri=settings.MILVUS_URI)          # collection: ops_kb_chunks
 EMBEDDING_DIM = 1024                                     # text-embedding-v3
+EMBEDDING_BATCH_SIZE = 10                                # DashScope 单次最大输入数
 
 
 def _embed(texts: list[str]) -> list[list[float]]:
-    """批量调 DashScope text-embedding-v3，返回 1024 维向量列表；失败抛异常由流水线兜底。"""
-    resp = TextEmbedding.call(
-        model="text-embedding-v3", input=texts,
-        api_key=settings.DASHSCOPE_API_KEY,
-    )
-    if resp.status_code != 200:
-        raise RuntimeError(f"Embedding 调用失败：{resp.message}")
-    return [item["embedding"] for item in resp.output["embeddings"]]
+    """分批调用 DashScope，返回与 texts 顺序一致的 1024 维向量列表。"""
+    vectors = []
+    for start in range(0, len(texts), EMBEDDING_BATCH_SIZE):
+        batch = texts[start:start + EMBEDDING_BATCH_SIZE]
+        resp = TextEmbedding.call(
+            model="text-embedding-v3", input=batch,
+            api_key=settings.DASHSCOPE_API_KEY,
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"Embedding 调用失败：{resp.message}")
+        vectors.extend(item["embedding"] for item in resp.output["embeddings"])
+    return vectors
 
 
 def write_to_milvus(rows: list) -> list[str]:
