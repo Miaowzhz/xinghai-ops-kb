@@ -4,6 +4,7 @@ import LoginView from '../views/LoginView.vue'
 import DocumentUploadView from '../views/DocumentUploadView.vue'
 import DocumentManageView from '../views/DocumentManageView.vue'
 import QaView from '../views/QaView.vue'
+import QaHistoryView from '../views/QaHistoryView.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
 
 const router = createRouter({
@@ -15,7 +16,7 @@ const router = createRouter({
     { path: '/documents/upload', component: DocumentUploadView, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/documents/manage', component: DocumentManageView, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/qa', component: QaView, meta: { requiresAuth: true } },
-    { path: '/qa/history', component: QaView, meta: { requiresAuth: true } },
+    { path: '/qa/history', component: QaHistoryView, meta: { requiresAuth: true } },
     { path: '/feedback/audit', component: ComingSoonView, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/:pathMatch(.*)*', redirect: '/qa' },
   ],

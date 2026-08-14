@@ -27,7 +27,6 @@ const feedbackForm = ref()
 const productLines = ['ECS', 'VPC', 'RDS']
 const feedbackRules = { reason: [{ required: true, message: '请填写点踩原因，方便管理员定位问题', trigger: 'blur' }, { min: 1, max: 500, message: '原因长度为 1-500 个字符', trigger: 'blur' }] }
 const activeSession = computed(() => sessions.value.find(item => item.id === activeSessionId.value))
-const historyMode = computed(() => route.path === '/qa/history')
 
 function formatTime(value) {
   if (!value) return ''
@@ -43,7 +42,11 @@ async function loadSessions(selectFirst = true) {
   loadingSessions.value = true; listError.value = false
   try {
     sessions.value = await getSessions()
-    if (selectFirst && sessions.value.length) await selectSession(sessions.value[0].id)
+    if (selectFirst && sessions.value.length) {
+      const requestedId = Number(route.query.session_id)
+      const requestedSession = sessions.value.find(item => item.id === requestedId)
+      await selectSession(requestedSession?.id || sessions.value[0].id)
+    }
   } catch (error) { listError.value = true; ElMessage.error('会话列表加载失败') } finally { loadingSessions.value = false }
 }
 async function selectSession(sessionId) {
@@ -105,7 +108,7 @@ onMounted(() => loadSessions())
         <div v-else class="session-list"><button v-for="session in sessions" :key="session.id" :class="['session-item', { active: activeSessionId === session.id }]" :disabled="streaming" @click="selectSession(session.id)"><span class="session-title">{{ session.title }}</span><small>{{ formatTime(session.updated_at) }}</small></button></div>
       </aside>
       <main class="chat-main">
-        <div class="chat-heading"><div><span class="chat-kicker">{{ historyMode ? '问答历史记录' : '运维知识问答' }}</span><h1>{{ activeSession?.title || (historyMode ? '选择一条历史会话' : '从问题开始') }}</h1></div><span class="chat-state" :class="{ active: streaming }">{{ streaming ? '正在生成回答' : '知识库已就绪' }}</span></div>
+        <div class="chat-heading"><div><span class="chat-kicker">运维知识问答</span><h1>{{ activeSession?.title || '从问题开始' }}</h1></div><span class="chat-state" :class="{ active: streaming }">{{ streaming ? '正在生成回答' : '知识库已就绪' }}</span></div>
         <div ref="scrollBox" class="messages-area">
           <el-empty v-if="!loadingMessages && !messages.length" :image-size="80" description="暂无会话，输入问题开始你的第一次提问" />
           <div v-if="loadingMessages" class="message-loading">正在加载消息...</div>

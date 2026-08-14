@@ -1,22 +1,19 @@
 <script setup>
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, ClipboardCheck, History } from '@lucide/vue'
+import { useRouter } from 'vue-router'
+import { ArrowLeft, ClipboardCheck } from '@lucide/vue'
 
-const route = useRoute()
 const router = useRouter()
-const isHistory = computed(() => route.path === '/qa/history')
 </script>
 
 <template>
   <main class="placeholder-page">
     <header class="page-heading">
       <button class="back-button" title="返回智能问答" @click="router.push('/qa')"><ArrowLeft :size="18" /></button>
-      <div><h1>{{ isHistory ? '问答历史记录' : '反馈审核工作台' }}</h1><p>{{ isHistory ? '集中检索和回看历史问答会话。' : '处理问答反馈并推动知识库持续改进。' }}</p></div>
+      <div><h1>反馈审核工作台</h1><p>处理问答反馈并推动知识库持续改进。</p></div>
     </header>
     <section class="placeholder-panel">
-      <component :is="isHistory ? History : ClipboardCheck" :size="34" />
-      <h2>{{ isHistory ? '历史记录功能正在建设' : '反馈审核功能正在建设' }}</h2>
+      <ClipboardCheck :size="34" />
+      <h2>反馈审核功能正在建设</h2>
       <p>当前入口和整体布局已经接通，后续业务页面将在这里直接承载。</p>
       <el-button type="primary" @click="router.push('/qa')">返回智能问答</el-button>
     </section>
