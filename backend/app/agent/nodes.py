@@ -16,7 +16,7 @@ llm = ChatOpenAI(
 CHITCHAT_REPLY = "您好，我是星海运维智能知识库助手，可以为您解答云产品运维相关问题。"
 FAQ_REPLY = "该问题超出运维知识库的服务范围，请描述具体的云产品运维问题。"
 
-
+# 意图识别节点
 async def intent_recognition(state: AgentState) -> dict:
     prompt = INTENT_PROMPT.format(history=state["history"], question=state["question"])
     resp = await llm.ainvoke(prompt)

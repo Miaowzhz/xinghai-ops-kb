@@ -1,5 +1,5 @@
 # backend/app/services/retrieval_service.py
-from pymilvus import MilvusClient
+from pymilvus import MilvusClient, RRFRanker, AnnSearchRequest
 from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,3 +54,32 @@ def _build_filter(product_line: str | None, product_version: str | None) -> str 
     if product_version:
         parts.append(f'product_version == "{product_version}"')
     return " and ".join(parts) if parts else None
+
+
+async def _fill_content(db: AsyncSession, fused: list[dict]) -> list[dict]:
+    """按 chunk_id 回 MySQL 补齐全文与文档信息（Milvus 只存检索字段，ADR-005）。"""
+    if not fused:
+        return []
+    ids = [f["chunk_id"] for f in fused]
+    stmt = (
+        select(KgDocumentChunk, KgDocument.title)
+        .join(KgDocument, KgDocument.id == KgDocumentChunk.document_id)
+        .where(KgDocumentChunk.id.in_(ids))
+    )
+    rows = (await db.execute(stmt)).all()
+    meta = {
+        chunk.id: {
+            "chunk_id": chunk.id,
+            "document_id": chunk.document_id,
+            "document_title": title,
+            "product_line": chunk.product_line,
+            "product_version": chunk.product_version,
+            "content": chunk.content,
+            "snippet": chunk.content[:200],
+        }
+        for chunk, title in rows
+    }
+    return [
+        {**meta[f["chunk_id"]], "score": f["score"]}
+        for f in fused if f["chunk_id"] in meta
+    ]
