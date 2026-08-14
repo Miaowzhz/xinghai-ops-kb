@@ -1,11 +1,29 @@
 # backend/app/services/qa_service.py
 import json
 from datetime import datetime
+from fastapi import HTTPException
 from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.qa import QaSession, QaMessage
 
 HISTORY_LIMIT = 10  # 多轮对话只带最近 10 条消息，防止上下文爆炸
+
+
+async def _check_session_owner(
+    db: AsyncSession, session_id: int, user_id: int
+) -> QaSession:
+    """校验会话存在且属于当前用户，防止跨用户读取或写入会话。"""
+    session = await db.get(QaSession, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    if session.user_id != user_id:
+        raise HTTPException(status_code=403, detail="无权访问该会话")
+    return session
+
+
+async def check_owner(db: AsyncSession, session_id: int, user_id: int) -> QaSession:
+    """公开的会话归属校验入口，供聊天路由复用。"""
+    return await _check_session_owner(db, session_id, user_id)
 
 
 async def create_session(db: AsyncSession, user_id: int, title: str = "新会话") -> QaSession:

@@ -1,6 +1,7 @@
 # backend/app/services/retrieval_service.py
+import asyncio
+from dashscope import TextEmbedding
 from pymilvus import MilvusClient, RRFRanker, AnnSearchRequest
-from langchain_openai import OpenAIEmbeddings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
@@ -14,12 +15,19 @@ FINAL_TOP_K = 5                # 融合后取 top 5
 MIN_RRF_SCORE = 0.01           # RRF 融合分 < 0.01 判定无可靠依据（拒答）
 
 milvus = MilvusClient(uri=settings.MILVUS_URI)          # http://localhost:19530
-embeddings = OpenAIEmbeddings(
-    model="text-embedding-v3",
-    api_key=settings.DASHSCOPE_API_KEY,
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-    dimensions=1024,
-)
+
+def _embed_query(query: str) -> list[float]:
+    """使用与文档入库相同的 DashScope SDK 生成查询向量。"""
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError("检索问题必须是非空字符串")
+    resp = TextEmbedding.call(
+        model="text-embedding-v3",
+        input=query.strip(),
+        api_key=settings.DASHSCOPE_API_KEY,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"查询向量生成失败：{resp.message}")
+    return resp.output["embeddings"][0]["embedding"]
 
 
 async def hybrid_retrieve(
@@ -29,7 +37,7 @@ async def hybrid_retrieve(
     product_version: str | None = None,
 ) -> list[dict]:
     """Milvus 单引擎 hybrid_search（dense + sparse 两路召回，RRF 融合），回 MySQL 补齐全文。"""
-    qv = await embeddings.aembed_query(query)
+    qv = await asyncio.to_thread(_embed_query, query)
     expr = _build_filter(product_line, product_version)
     res = milvus.hybrid_search(
         collection_name=COLLECTION,
@@ -60,7 +68,8 @@ async def _fill_content(db: AsyncSession, fused: list[dict]) -> list[dict]:
     """按 chunk_id 回 MySQL 补齐全文与文档信息（Milvus 只存检索字段，ADR-005）。"""
     if not fused:
         return []
-    ids = [f["chunk_id"] for f in fused]
+    # Milvus 的 chunk_id 是 VARCHAR，MySQL 的 kg_document_chunk.id 是整数。
+    ids = [int(f["chunk_id"]) for f in fused]
     stmt = (
         select(KgDocumentChunk, KgDocument.title)
         .join(KgDocument, KgDocument.id == KgDocumentChunk.document_id)
@@ -68,8 +77,8 @@ async def _fill_content(db: AsyncSession, fused: list[dict]) -> list[dict]:
     )
     rows = (await db.execute(stmt)).all()
     meta = {
-        chunk.id: {
-            "chunk_id": chunk.id,
+        str(chunk.id): {
+            "chunk_id": str(chunk.id),
             "document_id": chunk.document_id,
             "document_title": title,
             "product_line": chunk.product_line,
@@ -80,6 +89,6 @@ async def _fill_content(db: AsyncSession, fused: list[dict]) -> list[dict]:
         for chunk, title in rows
     }
     return [
-        {**meta[f["chunk_id"]], "score": f["score"]}
-        for f in fused if f["chunk_id"] in meta
+        {**meta[str(f["chunk_id"])], "score": f["score"]}
+        for f in fused if str(f["chunk_id"]) in meta
     ]
