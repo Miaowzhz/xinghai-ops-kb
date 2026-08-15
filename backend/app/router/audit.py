@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.core.deps import require_admin
-from app.schemas.feedback import AuditTaskOut, AuditTaskDetail, ResolveRequest
+from app.schemas.feedback import AuditTaskDetail, AuditTaskList, AuditTaskOut, ResolveRequest
 from app.services import audit_service
 
 router = APIRouter(
@@ -13,7 +13,7 @@ router = APIRouter(
 )
 
 
-@router.get("/tasks", response_model=dict)
+@router.get("/tasks", response_model=AuditTaskList)
 async def list_tasks(
     status: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),

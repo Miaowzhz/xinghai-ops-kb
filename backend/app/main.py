@@ -6,6 +6,7 @@ from app.router.document import router as document_router
 from app.router.qa import router as qa_router
 from app.router.guardrail import router as guardrail_router
 from app.router.feedback import router as feedback_router
+from app.router.audit import router as audit_router
 
 app = FastAPI(title="星海运维智能知识库")
 
@@ -24,6 +25,7 @@ app.include_router(document_router)
 app.include_router(qa_router)
 app.include_router(guardrail_router)
 app.include_router(feedback_router)
+app.include_router(audit_router)
 
 
 @app.get("/api/health")

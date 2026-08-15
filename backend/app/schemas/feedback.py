@@ -1,7 +1,7 @@
 # backend/app/schemas/feedback_service.py
 from datetime import datetime
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class FeedbackCreate(BaseModel):
@@ -19,6 +19,8 @@ class FeedbackOut(BaseModel):
 
 
 class AuditTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     feedback_id: int
     message_id: int
@@ -27,6 +29,13 @@ class AuditTaskOut(BaseModel):
     resolved_by: int | None
     resolved_at: datetime | None
     created_at: datetime
+
+
+class AuditTaskList(BaseModel):
+    items: list[AuditTaskOut]
+    total: int
+    page: int
+    page_size: int
 
 
 class AuditTaskDetail(AuditTaskOut):

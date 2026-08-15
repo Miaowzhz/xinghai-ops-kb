@@ -1,11 +1,11 @@
+import json
 from datetime import datetime
-from sqlalchemy import select, update
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.document import KgDocument
 from app.models.feedback import AuditTask, QaFeedback
-from app.schemas.feedback import ResolveRequest
-
-from sqlalchemy import select, desc
 from app.models.qa import QaMessage
+from app.schemas.feedback import ResolveRequest
 
 
 async def find_question_message(db, answer_msg: QaMessage) -> QaMessage | None:
@@ -26,6 +26,66 @@ async def find_question_message(db, answer_msg: QaMessage) -> QaMessage | None:
         .limit(1)
     )
     return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def list_tasks(
+    db: AsyncSession, status: str | None, page: int, page_size: int
+) -> tuple[list[AuditTask], int]:
+    filters = [AuditTask.status == status] if status else []
+    total_stmt = select(func.count(AuditTask.id)).where(*filters)
+    total = int((await db.execute(total_stmt)).scalar_one())
+    stmt = (
+        select(AuditTask)
+        .where(*filters)
+        .order_by(desc(AuditTask.created_at), desc(AuditTask.id))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    return list((await db.execute(stmt)).scalars()), total
+
+
+async def get_task_detail(db: AsyncSession, task_id: int) -> dict | None:
+    task = await db.get(AuditTask, task_id)
+    if task is None:
+        return None
+
+    answer = await db.get(QaMessage, task.message_id)
+    feedback = await db.get(QaFeedback, task.feedback_id)
+    if answer is None or feedback is None:
+        return None
+
+    question = await find_question_message(db, answer)
+    try:
+        citations = json.loads(answer.citations) if answer.citations else None
+    except (TypeError, json.JSONDecodeError):
+        citations = None
+
+    document_ids = {
+        item.get("document_id")
+        for item in citations or []
+        if isinstance(item, dict) and item.get("document_id") is not None
+    }
+    existing_document_ids: set[int] = set()
+    if document_ids:
+        document_stmt = select(KgDocument.id).where(KgDocument.id.in_(document_ids))
+        existing_document_ids = set((await db.execute(document_stmt)).scalars())
+
+    return {
+        "id": task.id,
+        "feedback_id": task.feedback_id,
+        "message_id": task.message_id,
+        "status": task.status,
+        "resolution": task.resolution,
+        "resolved_by": task.resolved_by,
+        "resolved_at": task.resolved_at,
+        "created_at": task.created_at,
+        "question": question.content if question else "原始问题已不可用",
+        "answer": answer.content,
+        "message_status": answer.status,
+        "citations": citations,
+        "dislike_reason": feedback.reason,
+        "document_deleted": bool(document_ids - existing_document_ids),
+    }
 
 
 async def resolve_task(

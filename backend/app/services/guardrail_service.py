@@ -50,6 +50,11 @@ async def match_confirm_rules(db: AsyncSession, question: str) -> list[Guardrail
     ]
 
 
+async def list_rules(db: AsyncSession) -> list[GuardrailRule]:
+    stmt = select(GuardrailRule).order_by(GuardrailRule.id)
+    return list((await db.execute(stmt)).scalars())
+
+
 async def create_rule(db: AsyncSession, body: RuleCreate, admin_id: int) -> GuardrailRule:
     rule = GuardrailRule(**body.model_dump(), created_by=admin_id)
     db.add(rule)

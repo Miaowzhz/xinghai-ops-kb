@@ -5,7 +5,7 @@ import DocumentUploadView from '../views/DocumentUploadView.vue'
 import DocumentManageView from '../views/DocumentManageView.vue'
 import QaView from '../views/QaView.vue'
 import QaHistoryView from '../views/QaHistoryView.vue'
-import ComingSoonView from '../views/ComingSoonView.vue'
+import AuditWorkbenchView from '../views/AuditWorkbenchView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -17,7 +17,7 @@ const router = createRouter({
     { path: '/documents/manage', component: DocumentManageView, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/qa', component: QaView, meta: { requiresAuth: true } },
     { path: '/qa/history', component: QaHistoryView, meta: { requiresAuth: true } },
-    { path: '/feedback/audit', component: ComingSoonView, meta: { requiresAuth: true, role: 'admin' } },
+    { path: '/feedback/audit', component: AuditWorkbenchView, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/:pathMatch(.*)*', redirect: '/qa' },
   ],
 })
