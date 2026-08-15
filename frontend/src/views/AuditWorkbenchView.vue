@@ -40,7 +40,7 @@ const taskStatuses = [
   { value: 'pending', label: '待处理' },
   { value: 'resolved', label: '已解决' },
   { value: 'rejected', label: '已驳回' },
-  { value: '', label: '全部' },
+  { value: 'all', label: '全部' },
 ]
 const statusMeta = {
   pending: { label: '待处理', type: 'warning' },
@@ -111,7 +111,7 @@ async function loadTasks() {
   taskError.value = false
   try {
     const params = { page: taskPage.value, page_size: taskPageSize }
-    if (taskStatus.value) params.status = taskStatus.value
+    if (taskStatus.value !== 'all') params.status = taskStatus.value
     const response = await getAuditTasks(params)
     tasks.value = response.items || []
     taskTotal.value = response.total || 0
