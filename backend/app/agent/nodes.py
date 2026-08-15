@@ -13,7 +13,7 @@ llm = ChatOpenAI(
     temperature=0.1,
 )
 
-
+CITATION_PATTERN = re.compile(r"\[(\d+)\]")
 CHITCHAT_REPLY = "您好，我是星海运维智能知识库助手，可以为您解答云产品运维相关问题。"
 FAQ_REPLY = "该问题超出运维知识库的服务范围，请描述具体的云产品运维问题。"
 
@@ -33,15 +33,24 @@ async def intent_recognition(state: AgentState) -> dict:
 
 # 护栏检查节点
 async def guardrail_check(state: AgentState, db) -> dict:
-    # 命中 action=block 的规则：直接给出拦截话术，状态置 blocked，不再检索/生成
-    rule = await guardrail_service.match_block_rule(db, state["question"])
-    if rule:
+    """护栏校验：命中 block 规则直接出拦截话术；命中 confirm 规则记录提示语。"""
+    question = state["question"]
+
+    # 1. block 规则：不做检索、不调生成，直接结束（业务流程规则：护栏优先于一切）
+    block_rule = await guardrail_service.match_block_rule(db, question)
+    if block_rule:
         return {
-            "answer": rule.reply_text,
+            "answer": block_rule.reply_text,
             "citations": [],
             "status": "blocked",
-            "guardrail_rule_id": rule.id,  # 命中规则 id 落库 qa_message.guardrail_rule_id（审计用）
+            "guardrail_rule_id": block_rule.id,  # 命中规则 id 写入 state，由 respond 落库 qa_message.guardrail_rule_id
         }
+
+    # 2. confirm 规则：不拦截，把提示语写进 state，generate 节点拼到提示词里
+    confirm_rules = await guardrail_service.match_confirm_rules(db, question)
+    if confirm_rules:
+        notices = "；".join(r.reply_text for r in confirm_rules)
+        return {"confirm_notice": notices}
     return {}
 
 
@@ -98,22 +107,52 @@ async def generate(state: AgentState) -> dict:
 
 
 async def citation_verify(state: AgentState) -> dict:
-    """校验答案中的引用编号，并把编号映射为前端展示的引用快照。"""
-    answer = state.get("answer", "")
+    """校验答案中的引用编号 [n] 是否都真实存在于 fused_chunks。"""
     chunks = state.get("fused_chunks", [])
-    cited_numbers = {int(value) for value in re.findall(r"\[(\d+)\]", answer)}
-    valid_numbers = {number for number in cited_numbers if 1 <= number <= len(chunks)}
-    citations = [chunks[number - 1] for number in sorted(valid_numbers)]
+    answer = state.get("answer", "")
+    cited_indexes = {int(n) for n in CITATION_PATTERN.findall(answer)}
 
-    if cited_numbers != valid_numbers:
+    # 规则一：答案一个引用都没有 → 视为失败（无来源的结论不允许输出）
+    # 规则二：引用了不存在的编号（如只有 5 个片段却写 [7]）→ 失败
+    if not cited_indexes or any(i < 1 or i > len(chunks) for i in cited_indexes):
+        retry_count = state.get("retry_count", 0)
+        if retry_count < 1:
+            # 回 generate 重新生成（图的条件边根据 status=verify_failed 路由）
+            return {"status": "verify_failed", "retry_count": retry_count + 1}
+        # 已重试 1 次仍失败 → 降级：不输出模型总结，只给片段列表和来源
+        degraded = "未生成可靠总结，以下是与问题最相关的知识片段，请直接参考：\n" + "\n".join(
+            f"[{i}]（{c['document_title']} {c['product_version']}）{c['snippet']}"
+            for i, c in enumerate(chunks, start=1)
+        )
         return {
-            "citations": citations,
-            "status": "verify_failed",
-            "retry_count": state.get("retry_count", 0) + 1,
+            "answer": degraded,
+            "citations": _build_citations(chunks, set(range(1, len(chunks) + 1))),
+            "status": "normal",
+            "retry_count": retry_count,
         }
-    return {"citations": citations, "status": "normal"}
+
+    # 校验通过：把答案实际引用的编号映射为 citations JSON
+    return {
+        "citations": _build_citations(chunks, cited_indexes),
+        "status": "normal",
+    }
 
 
+def _build_citations(chunks: list[dict], indexes: set[int]) -> list[dict]:
+    """编号 n 对应 fused_chunks[n-1]，映射成前端引用卡片需要的结构。"""
+    return [
+        {
+            "chunk_id": chunks[i - 1]["chunk_id"],
+            "document_id": chunks[i - 1]["document_id"],
+            "document_title": chunks[i - 1]["document_title"],
+            "product_line": chunks[i - 1]["product_line"],
+            "product_version": chunks[i - 1]["product_version"],
+            "snippet": chunks[i - 1]["snippet"],
+        }
+        for i in sorted(indexes)
+    ]
+
+# 响应节点
 async def respond(state: AgentState) -> dict:
     """统一补齐最终响应字段，供 SSE 和消息落库使用。"""
     status = state.get("status", "normal")
