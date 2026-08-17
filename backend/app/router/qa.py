@@ -60,11 +60,13 @@ async def chat(
         session = await qa_service.create_session(db, user.id, title=body.question[:50])
         session_id = session.id
 
-    # 2. 落库用户消息（role=user），保留 id 作为 assistant 消息的 reply_to_id
+    # 2. 先读取当前问题之前的最近 10 条历史，避免当前问题同时出现在 history 和 question
+    history = await qa_service.load_history(db, session_id)
+
+    # 3. 再落库用户消息，保留 id 作为 assistant 消息的 reply_to_id
     user_msg = await qa_service.save_message(db, session_id, role="user", content=body.question)
 
-    # 3. 读最近 10 条历史，组装初始 state
-    history = await qa_service.load_history(db, session_id)
+    # 4. 组装初始 state
     init_state = {
         "question": body.question,
         "session_id": session_id,
