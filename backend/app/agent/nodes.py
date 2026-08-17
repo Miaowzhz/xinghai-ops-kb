@@ -100,7 +100,10 @@ async def generate(state: AgentState) -> dict:
         for i, c in enumerate(state["fused_chunks"], start=1)
     )
     prompt = GENERATE_PROMPT.format(
-        context=context, history=state["history"], question=state["question"]
+        context=context,
+        history=state["history"],
+        question=state["question"],
+        confirm_notice=state.get("confirm_notice", "无"),
     )
     resp = await llm.ainvoke(prompt)
     return {"answer": resp.content}
