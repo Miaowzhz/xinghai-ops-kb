@@ -38,3 +38,24 @@ github：https://github.com/Miaowzhz/xinghai-ops-kb
 4. 知识问答-会话管理
 5. 知识问答-混合检索服务
 6. 知识问答-历史会话前端页面
+
+
+## 0815
+github：https://github.com/Miaowzhz/xinghai-ops-kb
+1. 复习知识入库业务
+2. 复习知识问答会话管理
+3. 知识问答-定义 AgentState 与各工作流节点
+4. 知识问答-组装 LangGraph 状态图
+5. 知识问答-实现 SSE 聊天接口 POST /api/qa/chat
+6. 知识问答-实现 智能问答前端页面
+
+
+## 0816
+github：https://github.com/Miaowzhz/xinghai-ops-kb
+1. 复习知识入库业务
+2. 复习智能问答业务
+3. 引用溯源与护栏-定义规则模型与 schema
+4. 引用溯源与护栏-实现 guardrail_service（CRUD + 规则匹配）
+5. 引用溯源与护栏-补全 guardrail_check 与 citation_verify 节点
+6. 引用溯源与护栏-实现规则维护 API
+7. 引用溯源与护栏-前端页面
