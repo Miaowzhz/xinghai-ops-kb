@@ -12,7 +12,7 @@ COLLECTION = "ops_kb_chunks"   # Milvus collection（SSOT §5）
 VECTOR_TOP_K = 20              # dense 向量召回 top 20
 BM25_TOP_K = 20                # sparse BM25 召回 top 20
 FINAL_TOP_K = 5                # 融合后取 top 5
-MIN_RRF_SCORE = 0.01           # RRF 融合分 < 0.01 判定无可靠依据（拒答）
+MIN_RRF_SCORE = 0.01639           # RRF 融合分 < 0.01639 判定无可靠依据（拒答）
 
 milvus = MilvusClient(uri=settings.MILVUS_URI)          # http://localhost:19530
 
