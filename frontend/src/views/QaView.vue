@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { History, MessageSquarePlus, Send, ThumbsDown, ThumbsUp } from '@lucide/vue'
@@ -69,7 +69,8 @@ async function sendQuestion() {
     try { const session = await createSession(content.slice(0, 50)); sessions.value.unshift(session); activeSessionId.value = session.id } catch { ElMessage.error('创建会话失败，请重试'); return }
   }
   const userMessage = { id: `local-user-${Date.now()}`, role: 'user', content, status: 'normal', created_at: new Date().toISOString() }
-  const assistantMessage = { id: `local-assistant-${Date.now()}`, role: 'assistant', content: '', citations: [], status: 'normal', created_at: new Date().toISOString(), streaming: true }
+  // 保持消息对象为响应式代理，确保 SSE token 到达时内容逐片刷新。
+  const assistantMessage = reactive({ id: `local-assistant-${Date.now()}`, role: 'assistant', content: '', citations: [], status: 'normal', created_at: new Date().toISOString(), streaming: true })
   messages.value.push(userMessage, assistantMessage); question.value = ''; streaming.value = true; scrollToBottom()
   try {
     await streamChat({ session_id: activeSessionId.value, question: content, ...(productLine.value ? { product_line: productLine.value } : {}) }, event => {

@@ -1,4 +1,5 @@
 # backend/app/routers/qa.py
+import asyncio
 import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,8 +82,11 @@ async def chat(
             graph = build_graph(db)                  # 请求级构建：把当前请求的 db session 绑进节点
             final = await graph.ainvoke(init_state)  # 执行 LangGraph 工作流
             # respond 逻辑：先推答案，再推引用，最后落库
-            for chunk in _split_answer(final["answer"]):  # 按小片段模拟逐字推送
+            chunks = _split_answer(final["answer"])
+            for index, chunk in enumerate(chunks):  # 按小片段模拟逐字推送
                 yield sse_event("token", {"content": chunk})
+                if index < len(chunks) - 1:
+                    await asyncio.sleep(0.04)
             if final.get("citations"):
                 yield sse_event("citations", {"items": final["citations"]})
             if final.get("status") != "normal":
@@ -104,4 +108,8 @@ async def chat(
             )
             yield sse_event("error", {"message": "系统繁忙，请稍后重试。"})
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
